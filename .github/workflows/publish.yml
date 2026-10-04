@@ -1,0 +1,81 @@
+name: publish
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: github-pages
+  cancel-in-progress: false
+
+jobs:
+  validate-build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout registry with history
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Checkout pinned Core schema and conformance tools
+        uses: actions/checkout@v4
+        with:
+          repository: integrated-recorder/core
+          ref: 3cf2c90280873f98f5120f67e39516c5af8abc04
+          path: core
+          persist-credentials: false
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Verify schema compatibility
+        run: go run ./cmd/registryctl check-core-schemas --core-dir core
+
+      - name: Build Core-owned black-box conformance tools
+        working-directory: core
+        run: |
+          go build -o "$RUNNER_TEMP/adapter-conformance" ./cmd/adapter-conformance
+          go build -o "$RUNNER_TEMP/storage-provider-conformance" ./cmd/storage-provider-conformance
+
+      - name: Validate Registry and history
+        run: |
+          go test ./...
+          go vet ./...
+          go build ./...
+          go run ./cmd/registryctl validate
+          git fetch origin main
+          go run ./cmd/registryctl check-immutability --base origin/main --repo-dir .
+          go run ./cmd/registryctl verify-artifacts \
+            --adapter-conformance "$RUNNER_TEMP/adapter-conformance" \
+            --storage-conformance "$RUNNER_TEMP/storage-provider-conformance"
+
+      - name: Build static Pages output
+        run: go run ./cmd/registryctl pages --schemas-dir schemas --output site
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+
+  deploy:
+    needs: validate-build
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy static Registry
+        id: deployment
+        uses: actions/deploy-pages@v4

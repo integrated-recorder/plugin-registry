@@ -1,0 +1,15 @@
+{
+  "id": "fixture-store",
+  "type": "storage",
+  "name": "Invalid Fixture",
+  "repository": "https://github.com/example/storage.fixture",
+  "channels": {"stable": "0.0.1"},
+  "releases": [
+    {
+      "version": "0.0.1",
+      "protocol": {"name": "source", "version": 1},
+      "source_commit": "0123456789abcdef0123456789abcdef01234567",
+      "artifacts": []
+    }
+  ]
+}

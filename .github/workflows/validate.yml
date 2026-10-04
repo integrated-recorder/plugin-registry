@@ -1,0 +1,70 @@
+name: validate
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout registry with history
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Checkout pinned Core schema and conformance tools
+        uses: actions/checkout@v4
+        with:
+          repository: integrated-recorder/core
+          ref: 3cf2c90280873f98f5120f67e39516c5af8abc04
+          path: core
+          persist-credentials: false
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Verify pinned schema copies
+        run: go run ./cmd/registryctl check-core-schemas --core-dir core
+
+      - name: Build Core-owned black-box conformance tools
+        working-directory: core
+        run: |
+          go build -o "$RUNNER_TEMP/adapter-conformance" ./cmd/adapter-conformance
+          go build -o "$RUNNER_TEMP/storage-provider-conformance" ./cmd/storage-provider-conformance
+
+      - name: Test and vet
+        run: |
+          go test -race ./...
+          go vet ./...
+          go build ./...
+
+      - name: Validate and build deterministically
+        run: |
+          go run ./cmd/registryctl validate
+          go run ./cmd/registryctl build --output "$RUNNER_TEMP/catalog-a.json"
+          go run ./cmd/registryctl build --output "$RUNNER_TEMP/catalog-b.json"
+          cmp "$RUNNER_TEMP/catalog-a.json" "$RUNNER_TEMP/catalog-b.json"
+
+      - name: Enforce append-only approved release history
+        run: |
+          git fetch origin main
+          go run ./cmd/registryctl check-immutability --base origin/main --repo-dir .
+
+      - name: Verify approved release bytes and descriptors
+        run: |
+          go run ./cmd/registryctl verify-artifacts \
+            --adapter-conformance "$RUNNER_TEMP/adapter-conformance" \
+            --storage-conformance "$RUNNER_TEMP/storage-provider-conformance"
+
+      - name: Check formatting and patch whitespace
+        run: |
+          test -z "$(gofmt -l $(find . -name '*.go' -not -path './core/*'))"
+          git diff --check
