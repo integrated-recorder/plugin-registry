@@ -67,4 +67,4 @@ jobs:
       - name: Check formatting and patch whitespace
         run: |
           test -z "$(gofmt -l $(find . -name '*.go' -not -path './core/*'))"
-          git diff --check
+          git diff --check origin/main...HEAD

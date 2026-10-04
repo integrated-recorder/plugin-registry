@@ -54,6 +54,9 @@ jobs:
           go run ./cmd/registryctl validate
           git fetch origin main
           go run ./cmd/registryctl check-immutability --base origin/main --repo-dir .
+          go run ./cmd/registryctl build --output "$RUNNER_TEMP/catalog-a.json"
+          go run ./cmd/registryctl build --output "$RUNNER_TEMP/catalog-b.json"
+          cmp "$RUNNER_TEMP/catalog-a.json" "$RUNNER_TEMP/catalog-b.json"
           go run ./cmd/registryctl verify-artifacts \
             --adapter-conformance "$RUNNER_TEMP/adapter-conformance" \
             --storage-conformance "$RUNNER_TEMP/storage-provider-conformance"
