@@ -7,8 +7,9 @@ builds remain in their own repositories; this repository never clones or builds 
 
 The v3 source catalog now proposes the real Owncast 0.2.0 release from
 `integrated-recorder/source.owncast`, with immutable source commit, exact artifact size and
-SHA-256, and a matching Protocol v1 descriptor. The Registry PR and required review/CI must pass
-before this entry is published. `storage.local` is the bundled reference Storage Provider in Core
+SHA-256, and a matching Protocol v1 descriptor. The Registry PR and required CI/artifact validation
+must pass before this entry is published. In current solo-maintainer mode, no independent approval
+is required. `storage.local` is the bundled reference Storage Provider in Core
 and is never distributed by this Registry.
 
 After GitHub Pages is enabled for this repository, the canonical catalog URL is:
@@ -25,13 +26,19 @@ Registry is unavailable, installed immutable plugin artifacts continue to work.
 ## How approval works
 
 Plugin repositories build and publish executable releases. GitHub Releases or another HTTPS host
-transports those bytes. A reviewed Registry change pins the plugin identity, type, version, source
+transports those bytes. A Registry-approved change pins the plugin identity, type, version, source
 commit, Protocol family/version, platform, filename, exact size, and SHA-256. Runtime Host downloads
 the bytes, checks exact size and digest, probes the executable descriptor, and imports it through
 the existing immutable plugin lifecycle. A changed release asset with an unchanged Registry digest
 is rejected by Core.
 
-Registry merges require explicit human review. See [CONTRIBUTING.md](CONTRIBUTING.md),
+The Registry currently operates in solo-maintainer mode. Every change must go through a pull
+request and pass required automated validation and immutable artifact verification. The `main`
+branch still prohibits direct pushes, enforces its rules for administrators, blocks force pushes,
+and prevents branch deletion; required approving reviews are set to zero because there is one
+maintainer. When a second active trusted maintainer joins, the project intends to restore at least
+one required approving review. Registry approval does not imply independent human review. See
+[CONTRIBUTING.md](CONTRIBUTING.md),
 [SECURITY.md](SECURITY.md), and [docs/ADMIN_SETUP.md](docs/ADMIN_SETUP.md).
 
 The Registry builder reads one v3 JSON source file per plugin from `plugins/`, including an explicit

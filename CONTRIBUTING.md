@@ -1,8 +1,18 @@
 # Contributing plugins
 
 Every catalog change is an approval decision. Open a pull request; do not edit generated output by
-hand. Registry maintainers review and merge the PR. A merge approves the precise executable bytes
-listed in the source file.
+hand. A merge approves the precise executable bytes listed in the source file after required CI and
+artifact verification pass.
+
+## Maintainer review policy
+
+The Registry currently operates in solo-maintainer mode. All changes must go through pull requests
+and pass the required automated validation, including immutable artifact verification. The required
+approving-review count is zero because the project currently has one maintainer; this does not
+remove the PR requirement, CI requirement, administrator enforcement, direct-push protection,
+force-push prohibition, or branch-deletion protection. Registry approval in this mode does not
+imply an independent human review. When a second active trusted maintainer joins, the project
+intends to restore at least one required approving review.
 
 ## Add a release
 
@@ -23,9 +33,10 @@ listed in the source file.
 6. Submit a PR. CI validates v3 structure, the v2 compatibility projection, append-only history,
    downloaded bytes, GitHub source commit,
    and the Protocol v1 executable descriptor. It does not build the submitted plugin.
-7. Reviewers inspect the repository identity, license, source commit/tag, release relation, hashes,
-   protocol descriptor, requested network/filesystem authority, secret use, and unexpected
-   dependencies. Approval must be explicit before merge.
+7. The maintainer checklist covers repository identity, license, source commit/tag, release
+   relation, hashes, protocol descriptor, requested network/filesystem authority, secret use, and
+   unexpected dependencies. In current solo-maintainer mode, no independent approving review is
+   required; automated validation and artifact verification remain required before merge.
 8. Merge to `main`; the Pages workflow publishes the generated static catalog.
 
 Releases are append-only. Never remove a merged version or change the approved bytes for an existing
@@ -37,8 +48,8 @@ repository metadata may be corrected when that does not rewrite release identity
 
 The v1, v2, and v3 wire contracts are vendored from the exact Core commit recorded in
 [`schemas/CORE_SCHEMA_SOURCE.md`](schemas/CORE_SCHEMA_SOURCE.md). Schema updates require a separate
-explicit Registry PR that pins the final Core commit and records the vendored schema hashes, with
-review of the corresponding Core change.
+explicit Registry PR that pins the final Core commit and records the vendored schema hashes and
+compatibility rationale for the corresponding Core change.
 
 Official repositories are encouraged to use `source.<platform>` or `storage.<backend>` names.
 Third-party repositories are permitted; the schema does not require a repository to belong to the
