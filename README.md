@@ -5,14 +5,19 @@ builds remain in their own repositories; this repository never clones or builds 
 
 ## Production catalog
 
-The initial catalog is intentionally empty. No source or storage plugin is listed until a real
-release, immutable source commit, exact artifact size and SHA-256, and matching Protocol v1
-descriptor have passed review and CI. `storage.local` is the bundled reference Storage Provider
-in Core and is never distributed by this Registry.
+The v3 source catalog now proposes the real Owncast 0.2.0 release from
+`integrated-recorder/source.owncast`, with immutable source commit, exact artifact size and
+SHA-256, and a matching Protocol v1 descriptor. The Registry PR and required review/CI must pass
+before this entry is published. `storage.local` is the bundled reference Storage Provider in Core
+and is never distributed by this Registry.
 
 After GitHub Pages is enabled for this repository, the canonical catalog URL is:
 
-`https://integrated-recorder.github.io/plugin-registry/catalog.json`
+`https://integrated-recorder.github.io/plugin-registry/catalog-v3.json`
+
+The v2 compatibility catalog remains available at
+`https://integrated-recorder.github.io/plugin-registry/catalog.json` while older Core runtimes
+consume v2.
 
 The Registry is approval metadata, not a runtime dependency for already-installed plugins. If the
 Registry is unavailable, installed immutable plugin artifacts continue to work.
@@ -29,9 +34,13 @@ is rejected by Core.
 Registry merges require explicit human review. See [CONTRIBUTING.md](CONTRIBUTING.md),
 [SECURITY.md](SECURITY.md), and [docs/ADMIN_SETUP.md](docs/ADMIN_SETUP.md).
 
-The Registry builder reads one JSON source file per plugin from `plugins/` and generates
-`dist/catalog.json`. The generated catalog is a deployment artifact, not source of truth, and is
-not committed. `registryctl build` is deterministic.
+The Registry builder reads one v3 JSON source file per plugin from `plugins/`, including an explicit
+`publisher.kind` of `first_party` or `third_party`. It generates canonical `dist/catalog-v3.json`
+and a v2-compatible `dist/catalog.json` projection that omits publisher-only metadata. The generated
+catalogs are deployment artifacts, not source of truth, and are not committed. Both builds are
+deterministic. First-party entries must use a repository owned by the `integrated-recorder` GitHub
+organization; third-party repositories may be hosted elsewhere. Source ID `hls` and storage ID
+`local` are reserved.
 
 ```sh
 go test ./...
