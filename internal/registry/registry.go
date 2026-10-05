@@ -1,4 +1,5 @@
-// Package registry implements the curated, static Plugin Registry v2 source format.
+// Package registry implements the curated Plugin Registry v2 compatibility
+// contract and publisher-aware v3 source/catalog format.
 package registry
 
 import (
@@ -24,7 +25,7 @@ const (
 	MaxReleasesPerPlugin         = 128
 	MaxArtifactsPerRelease       = 16
 	MaxArtifactBytes       int64 = 536870912
-	PinnedCoreCommit             = "3cf2c90280873f98f5120f67e39516c5af8abc04"
+	PinnedCoreCommit             = "912f2890a18c0d480b3a2ccd2aaae07bff76397c"
 )
 
 var (

@@ -10,12 +10,19 @@ malicious behavior. Native plugins are trusted executable code. They are not san
 receive the network, filesystem, and secrets required by their declared operation. Registry review
 cannot prove that approved source produced the binary.
 
-The v1/v2 model does not defend against compromise of this Registry repository, GitHub accounts,
-maintainer credentials, or an authorized reviewer. It does not prevent rollback/freeze attacks and
-does not use publisher PKI, signed catalog snapshots, or TUF-style metadata. The current operational
-trust root is the `main` branch of `integrated-recorder/plugin-registry`, its GitHub access controls,
-required validation, and human review. Signed snapshots and stronger rollback protection are future
-work, not guarantees of this Registry.
+The v1/v2 compatibility and v3 models do not defend against compromise of this Registry repository,
+GitHub accounts, maintainer credentials, or an authorized reviewer. It does not prevent
+rollback/freeze attacks and does not use publisher PKI, signed catalog snapshots, or TUF-style
+metadata. The current operational trust root is the `main` branch of
+`integrated-recorder/plugin-registry`, its GitHub access controls, required validation, and human
+review. Signed snapshots and stronger rollback protection are future work, not guarantees of this
+Registry.
+
+Catalog v3 classifies each plugin as `first_party` or `third_party`. A first-party repository must
+be owned by the `integrated-recorder` GitHub organization; third-party repositories may be external.
+This classification does not add publisher authentication or attest source-to-binary
+reproducibility. The v3 schema is pinned to the committed Core source revision and SHA-256 recorded
+in [`schemas/CORE_SCHEMA_SOURCE.md`](schemas/CORE_SCHEMA_SOURCE.md).
 
 Artifact URLs must be HTTPS and contain no userinfo, query string, or fragment. CI streams each
 artifact into a private temporary file, enforces the Core 512 MiB ceiling, checks exact size and

@@ -28,7 +28,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: integrated-recorder/core
-          ref: 3cf2c90280873f98f5120f67e39516c5af8abc04
+          ref: 912f2890a18c0d480b3a2ccd2aaae07bff76397c
           path: core
           persist-credentials: false
 
@@ -54,9 +54,10 @@ jobs:
           go run ./cmd/registryctl validate
           git fetch origin main
           go run ./cmd/registryctl check-immutability --base origin/main --repo-dir .
-          go run ./cmd/registryctl build --output "$RUNNER_TEMP/catalog-a.json"
-          go run ./cmd/registryctl build --output "$RUNNER_TEMP/catalog-b.json"
+          go run ./cmd/registryctl build --output "$RUNNER_TEMP/catalog-a.json" --output-v3 "$RUNNER_TEMP/catalog-v3-a.json"
+          go run ./cmd/registryctl build --output "$RUNNER_TEMP/catalog-b.json" --output-v3 "$RUNNER_TEMP/catalog-v3-b.json"
           cmp "$RUNNER_TEMP/catalog-a.json" "$RUNNER_TEMP/catalog-b.json"
+          cmp "$RUNNER_TEMP/catalog-v3-a.json" "$RUNNER_TEMP/catalog-v3-b.json"
           go run ./cmd/registryctl verify-artifacts \
             --adapter-conformance "$RUNNER_TEMP/adapter-conformance" \
             --storage-conformance "$RUNNER_TEMP/storage-provider-conformance"

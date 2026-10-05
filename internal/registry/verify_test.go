@@ -5,6 +5,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
+	"io"
 	"net"
 	"net/http"
 	"net/http/httptest"
@@ -15,6 +16,10 @@ import (
 	"testing"
 	"time"
 )
+
+type roundTripFunc func(*http.Request) (*http.Response, error)
+
+func (f roundTripFunc) RoundTrip(r *http.Request) (*http.Response, error) { return f(r) }
 
 func tlsServer(handler http.Handler) *httptest.Server {
 	listener, err := net.Listen("tcp4", "127.0.0.1:0")
@@ -216,6 +221,26 @@ func TestGitHubReleaseAssetNamesMayDifferFromInstalledExecutableName(t *testing.
 	}
 	if err := verifyReleaseAssets(artifacts, assets); err != nil {
 		t.Fatalf("platform-specific GitHub asset names should be accepted: %v", err)
+	}
+}
+
+func TestVerifySourceCommitUsesBoundedGitObjectEndpoint(t *testing.T) {
+	const sha = "f81b75a4bd223d33855142d1c037d7108b1ef1ce"
+	body := `{"sha":"` + sha + `","verification":{"payload":"` + strings.Repeat("x", 128<<10) + `"}}`
+	client := &http.Client{Transport: roundTripFunc(func(r *http.Request) (*http.Response, error) {
+		want := "/repos/integrated-recorder/source.owncast/git/commits/" + sha
+		if r.URL.Path != want {
+			t.Fatalf("unexpected GitHub endpoint %q, want %q", r.URL.Path, want)
+		}
+		return &http.Response{
+			StatusCode: http.StatusOK,
+			Header:     make(http.Header),
+			Body:       io.NopCloser(strings.NewReader(body)),
+			Request:    r,
+		}, nil
+	})}
+	if err := verifySourceCommit(context.Background(), client, "https://github.com/integrated-recorder/source.owncast", sha); err != nil {
+		t.Fatalf("large Git object response should verify by SHA: %v", err)
 	}
 }
 

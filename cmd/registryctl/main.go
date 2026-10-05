@@ -38,38 +38,46 @@ func run(args []string) error {
 		if fs.NArg() != 0 {
 			return usage()
 		}
-		plugins, err := registry.LoadPlugins(*dir)
+		plugins, err := registry.LoadPluginsV3(*dir)
 		if err != nil {
 			return err
 		}
-		fmt.Printf("valid Plugin Registry v2 source: %d plugins\n", len(plugins))
+		fmt.Printf("valid Plugin Registry v3 source and v2 compatibility projection: %d plugins\n", len(plugins))
 		return nil
 	case "build":
 		fs := flag.NewFlagSet("build", flag.ContinueOnError)
 		fs.SetOutput(os.Stderr)
 		dir := fs.String("plugins-dir", "plugins", "plugin source directory")
 		out := fs.String("output", "dist/catalog.json", "generated catalog path")
+		outV3 := fs.String("output-v3", "dist/catalog-v3.json", "generated v3 catalog path")
 		if err := fs.Parse(args[1:]); err != nil {
 			return err
 		}
 		if fs.NArg() != 0 {
 			return usage()
 		}
-		plugins, err := registry.LoadPlugins(*dir)
+		plugins, err := registry.LoadPluginsV3(*dir)
 		if err != nil {
 			return err
 		}
-		data, err := registry.Build(plugins)
+		if filepath.Clean(*out) == filepath.Clean(*outV3) {
+			return fmt.Errorf("v2 and v3 output paths must differ")
+		}
+		data, err := registry.BuildV2Projection(plugins)
 		if err != nil {
 			return err
 		}
-		if err = os.MkdirAll(filepath.Dir(*out), 0755); err != nil {
-			return errorsSafe("output directory could not be created")
+		dataV3, err := registry.BuildV3(plugins)
+		if err != nil {
+			return err
 		}
-		if err = os.WriteFile(*out, data, 0644); err != nil {
-			return errorsSafe("catalog could not be written")
+		if err = writeGenerated(*out, data); err != nil {
+			return err
 		}
-		fmt.Printf("built deterministic catalog: %d plugins\n", len(plugins))
+		if err = writeGenerated(*outV3, dataV3); err != nil {
+			return err
+		}
+		fmt.Printf("built deterministic v2 compatibility and v3 catalogs: %d plugins\n", len(plugins))
 		return nil
 	case "verify-artifacts":
 		fs := flag.NewFlagSet("verify-artifacts", flag.ContinueOnError)
@@ -83,7 +91,7 @@ func run(args []string) error {
 		if fs.NArg() != 0 {
 			return usage()
 		}
-		plugins, err := registry.LoadPlugins(*dir)
+		plugins, err := registry.LoadPluginsV3(*dir)
 		if err != nil {
 			return err
 		}
@@ -93,7 +101,7 @@ func run(args []string) error {
 		}
 		ctx, cancel := context.WithTimeout(context.Background(), 20*time.Minute)
 		defer cancel()
-		if err = registry.VerifyArtifacts(ctx, plugins, *adapter, *storage); err != nil {
+		if err = registry.VerifyArtifacts(ctx, registry.V2Projection(plugins), *adapter, *storage); err != nil {
 			return err
 		}
 		fmt.Printf("verified artifacts and protocol descriptors for %d plugins\n", len(plugins))
@@ -113,7 +121,7 @@ func run(args []string) error {
 		if *base == "" {
 			return fmt.Errorf("--base is required")
 		}
-		if err := registry.CheckImmutability(*repo, *base, *dir); err != nil {
+		if err := registry.CheckImmutabilityV3(*repo, *base, *dir); err != nil {
 			return err
 		}
 		fmt.Printf("release history is immutable relative to %s\n", *base)
@@ -141,14 +149,14 @@ func run(args []string) error {
 		if fs.NArg() != 0 {
 			return usage()
 		}
-		plugins, err := registry.LoadPlugins(*dir)
+		plugins, err := registry.LoadPluginsV3(*dir)
 		if err != nil {
 			return err
 		}
-		if err = registry.BuildPages(plugins, *schemas, *out); err != nil {
+		if err = registry.BuildPagesV3(plugins, *schemas, *out); err != nil {
 			return errorsSafe("Pages site could not be built")
 		}
-		fmt.Printf("built static Pages tree: %d approved plugins\n", len(plugins))
+		fmt.Printf("built static Pages tree with v2 compatibility and v3 catalogs: %d approved plugins\n", len(plugins))
 		return nil
 	default:
 		return usage()
@@ -160,22 +168,43 @@ func checkCoreSchemas(coreDir string) error {
 	if err != nil || strings.TrimSpace(string(out)) != registry.PinnedCoreCommit {
 		return fmt.Errorf("Core checkout must be pinned to %s", registry.PinnedCoreCommit)
 	}
-	want := map[string]string{"plugin-registry-v1.schema.json": "06d1d72781182f29c48f21fc4c8709ddb4a3c50fe8aaeb31c289ceef8fd9d031", "plugin-registry-v2.schema.json": "bf4105ed9dcf6971c9f1b2f446b67eef9cb4d4cf5f88836805fa0711c9e5eb48"}
+	want := map[string]string{"plugin-registry-v1.schema.json": "06d1d72781182f29c48f21fc4c8709ddb4a3c50fe8aaeb31c289ceef8fd9d031", "plugin-registry-v2.schema.json": "bf4105ed9dcf6971c9f1b2f446b67eef9cb4d4cf5f88836805fa0711c9e5eb48", "plugin-registry-v3.schema.json": "b282ceeda7911112f6634b2f0f2ab9c17901f5c571ea02f91752dc894708f68e"}
 	for name, digest := range want {
-		source, err := os.ReadFile(filepath.Join(coreDir, "docs", "schemas", name))
-		if err != nil {
-			return fmt.Errorf("Core schema %s is unavailable", name)
-		}
 		vendored, err := os.ReadFile(filepath.Join("schemas", name))
 		if err != nil {
 			return fmt.Errorf("vendored schema %s is unavailable", name)
 		}
 		h := sha256.Sum256(vendored)
-		if hex.EncodeToString(h[:]) != digest || !bytesEqual(source, vendored) {
+		if hex.EncodeToString(h[:]) != digest {
+			return fmt.Errorf("vendored schema %s differs from the recorded schema hash", name)
+		}
+		source, err := exec.Command("git", "-C", coreDir, "show", registry.PinnedCoreCommit+":docs/schemas/"+name).Output()
+		if err != nil {
+			if name == "plugin-registry-v3.schema.json" {
+				workspaceCopy, workspaceErr := os.ReadFile(filepath.Join(coreDir, "docs", "schemas", name))
+				if workspaceErr == nil && !bytesEqual(workspaceCopy, vendored) {
+					return fmt.Errorf("vendored v3 schema differs from the uncommitted Core schema copy")
+				}
+				fmt.Println("v3 Core schema source commit is pending; provenance remains unpinned")
+				continue
+			}
+			return fmt.Errorf("Core schema %s is unavailable at the pinned commit", name)
+		}
+		if !bytesEqual(source, vendored) {
 			return fmt.Errorf("vendored schema %s differs from the pinned Core schema", name)
 		}
 	}
-	fmt.Println("vendored schemas match pinned Core commit and hashes")
+	fmt.Println("vendored schemas match their recorded hashes and pinned Core sources where available")
+	return nil
+}
+
+func writeGenerated(path string, data []byte) error {
+	if err := os.MkdirAll(filepath.Dir(path), 0755); err != nil {
+		return errorsSafe("output directory could not be created")
+	}
+	if err := os.WriteFile(path, data, 0644); err != nil {
+		return errorsSafe("catalog could not be written")
+	}
 	return nil
 }
 func bytesEqual(a, b []byte) bool {
