@@ -1,0 +1,32 @@
+{
+  "id": "fixture-v3",
+  "type": "source",
+  "publisher": {
+    "kind": "first_party"
+  },
+  "name": "Non-production invalid fixture",
+  "repository": "https://github.com/example/fixture-v3",
+  "channels": {
+    "stable": "0.1.0"
+  },
+  "releases": [
+    {
+      "version": "0.1.0",
+      "protocol": {
+        "name": "source",
+        "version": 1
+      },
+      "source_commit": "1111111111111111111111111111111111111111",
+      "artifacts": [
+        {
+          "os": "linux",
+          "arch": "amd64",
+          "url": "https://downloads.example.invalid/fixture-v3/linux-amd64",
+          "filename": "integrated-recorder-adapter-fixture-v3",
+          "size": 1,
+          "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        }
+      ]
+    }
+  ]
+}

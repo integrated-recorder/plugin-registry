@@ -393,7 +393,9 @@ func verifySourceCommit(ctx context.Context, client *http.Client, repository, sh
 	if len(parts) != 2 {
 		return errors.New("invalid GitHub repository URL")
 	}
-	endpoint := "https://api.github.com/repos/" + url.PathEscape(parts[0]) + "/" + url.PathEscape(strings.TrimSuffix(parts[1], ".git")) + "/commits/" + sha
+	// Use the Git database commit endpoint: the higher-level commits endpoint
+	// includes file and patch data that can exceed the bounded response budget.
+	endpoint := "https://api.github.com/repos/" + url.PathEscape(parts[0]) + "/" + url.PathEscape(strings.TrimSuffix(parts[1], ".git")) + "/git/commits/" + sha
 	resp, err := githubGet(ctx, client, endpoint)
 	if err != nil {
 		return errors.New("GitHub commit lookup failed")
@@ -405,7 +407,7 @@ func verifySourceCommit(ctx context.Context, client *http.Client, repository, sh
 	var commit struct {
 		SHA string `json:"sha"`
 	}
-	if json.NewDecoder(io.LimitReader(resp.Body, 64<<10)).Decode(&commit) != nil || commit.SHA != sha {
+	if json.NewDecoder(io.LimitReader(resp.Body, 1<<20)).Decode(&commit) != nil || commit.SHA != sha {
 		return errors.New("source commit response did not match pinned SHA")
 	}
 	return nil
@@ -520,5 +522,44 @@ func BuildPages(plugins []Plugin, schemaDir, outDir string) error {
 		}
 	}
 	index := fmt.Sprintf("<!doctype html><html lang=\"en\"><meta charset=\"utf-8\"><title>Integrated Recorder Plugin Registry</title><h1>Integrated Recorder Plugin Registry</h1><p>Schema version %d · %d approved plugins</p><p><a href=\"catalog.json\">Catalog JSON</a> · <a href=\"https://github.com/integrated-recorder/core\">Core</a></p></html>\n", SchemaVersion, len(plugins))
+	return os.WriteFile(filepath.Join(outDir, "index.html"), []byte(index), 0644)
+}
+
+// BuildPagesV3 stages both the canonical v3 catalog and the v2 compatibility
+// document for Core runtimes that have not yet adopted publisher metadata.
+func BuildPagesV3(plugins []PluginV3, schemaDir, outDir string) error {
+	catalogV2, err := BuildV2Projection(plugins)
+	if err != nil {
+		return err
+	}
+	catalogV3, err := BuildV3(plugins)
+	if err != nil {
+		return err
+	}
+	if err = os.MkdirAll(outDir, 0755); err != nil {
+		return err
+	}
+	entries, err := os.ReadDir(outDir)
+	if err != nil {
+		return err
+	}
+	if len(entries) != 0 {
+		return errors.New("Pages output directory must be empty")
+	}
+	for name, data := range map[string][]byte{"catalog.json": catalogV2, "catalog-v3.json": catalogV3} {
+		if err = os.WriteFile(filepath.Join(outDir, name), data, 0644); err != nil {
+			return err
+		}
+	}
+	for _, name := range []string{"plugin-registry-v1.schema.json", "plugin-registry-v2.schema.json", "plugin-registry-v3.schema.json"} {
+		b, e := os.ReadFile(filepath.Join(schemaDir, name))
+		if e != nil {
+			return e
+		}
+		if e = os.WriteFile(filepath.Join(outDir, name), b, 0644); e != nil {
+			return e
+		}
+	}
+	index := fmt.Sprintf("<!doctype html><html lang=\"en\"><meta charset=\"utf-8\"><title>Integrated Recorder Plugin Registry</title><h1>Integrated Recorder Plugin Registry</h1><p>Canonical schema version %d · %d approved plugins</p><p>Compatibility schema version %d · %d approved plugins</p><p><a href=\"catalog-v3.json\">Canonical v3 catalog</a> · <a href=\"catalog.json\">v2 compatibility catalog</a> · <a href=\"https://github.com/integrated-recorder/core\">Core</a></p></html>\n", SchemaVersionV3, len(plugins), SchemaVersion, len(plugins))
 	return os.WriteFile(filepath.Join(outDir, "index.html"), []byte(index), 0644)
 }

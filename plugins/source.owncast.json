@@ -1,0 +1,40 @@
+{
+  "id": "owncast",
+  "type": "source",
+  "publisher": {
+    "kind": "first_party"
+  },
+  "name": "Owncast",
+  "repository": "https://github.com/integrated-recorder/source.owncast",
+  "channels": {
+    "stable": "0.2.0"
+  },
+  "releases": [
+    {
+      "version": "0.2.0",
+      "protocol": {
+        "name": "source",
+        "version": 1
+      },
+      "source_commit": "f81b75a4bd223d33855142d1c037d7108b1ef1ce",
+      "artifacts": [
+        {
+          "os": "linux",
+          "arch": "amd64",
+          "url": "https://github.com/integrated-recorder/source.owncast/releases/download/v0.2.0/integrated-recorder-adapter-owncast_linux_amd64",
+          "filename": "integrated-recorder-adapter-owncast",
+          "size": 5894296,
+          "sha256": "df33541914c9a4d1bce6383717e3827ae8c9883692737e9a32e6597c033a7d28"
+        },
+        {
+          "os": "linux",
+          "arch": "arm64",
+          "url": "https://github.com/integrated-recorder/source.owncast/releases/download/v0.2.0/integrated-recorder-adapter-owncast_linux_arm64",
+          "filename": "integrated-recorder-adapter-owncast",
+          "size": 5701784,
+          "sha256": "65e4fda8b4dc13c0bb896efe286018345b8e4e7dd33a76d7376e8d570ce5e792"
+        }
+      ]
+    }
+  ]
+}
